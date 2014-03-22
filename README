@@ -1,0 +1,23 @@
+Gigabit is an irc bot in C , currently under development and testing.
+
+to build Gigabit you need libircclient,libmrss,libGeoIP,and pthread support . 
+Gigabit is and will always be written for linux.
+
+FEATURES:
+GeoIP lookup
+nmap 
+fortune 
+ping
+traceroute
+dig
+subnet calculator and math calculator(bc)
+dictionary lookup (sdcv)
+man page lookup
+ability to direct output to other users
+rss feed reader
+see TODO  for planned features and work.
+
+Gigabit was made to replace a java based ircbot of the same name for the channel ##hackers on freenode.
+please hop in anytime to see Gigabit in action,to contribute or just to hang out :)
+
+http://discuss.thissystem.net/index.php?p=/discussion/7/gigabit-made-public
