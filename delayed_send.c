@@ -9,14 +9,10 @@
 #include <sys/queue.h>
 #include "libircclient.h"
 #include "delayed_send.h"
-#include "portable.c"
-#include "sockets.c"
 
 #include "session.h"
 
-#include "utils.c"
-#include "errors.c"
-#include "colors.c"
+
 #include "dcc.c"
 #include "ssl.c"
 TAILQ_HEAD (, message) message_head;
