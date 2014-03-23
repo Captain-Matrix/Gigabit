@@ -1,6 +1,6 @@
 Gigabit is an irc bot in C , currently under development and testing.
 
-to build Gigabit you need libircclient,libmrss,libGeoIP,liblfg and pthread support . 
+to build Gigabit you need libircclient,libmrss,libGeoIP,liblcfg and pthread support . 
 Gigabit is and will always be written for linux.
 
 FEATURES:
@@ -21,3 +21,15 @@ Gigabit was made to replace a java based ircbot of the same name for the channel
 please hop in anytime to see Gigabit in action,to contribute or just to hang out :)
 
 http://discuss.thissystem.net/index.php?p=/discussion/7/gigabit-made-public
+
+WHERE TO FIND DEPENDENCIES:
+http://liblcfg.carnivore.it/#download -- liblcfg
+https://github.com/maxmind/geoip-api-c/tree/master/libGeoIP --libGeoIP
+http://www.autistici.org/bakunin/libmrss/  -- libmrss
+http://sourceforge.net/projects/libircclient/ --libircclient
+
+Please build and install the latest version of those libraries before attempting to bulid this project.
+Also,make sure to look at the default configuration file "default.cfg" and edit it according to your needs
+and see to it that you have any directory,file,or credential mentioned in the config on your system as well.
+
+Thank you for checking out gigabit please provide any positive criticism in ##hackers anytime :)
