@@ -10,11 +10,7 @@
 #include "libircclient.h"
 #include "delayed_send.h"
 
-#include "session.h"
 
-
-#include "dcc.c"
-#include "ssl.c"
 TAILQ_HEAD (, message) message_head;
      irc_session_t *session;
      message *queue;
@@ -39,7 +35,7 @@ TAILQ_HEAD (, message) message_head;
 
 	  TAILQ_FOREACH (queue, &message_head, entries)
 	  {
-	    libirc_mutex_lock (session->mutex_session);
+	  //  libirc_mutex_lock (session->mutex_session);
 	    if (queue != NULL)
 	      {
 		printf (">>> <%s>%s\n", queue->destination, queue->data);
@@ -48,7 +44,7 @@ TAILQ_HEAD (, message) message_head;
 
 		TAILQ_REMOVE (&message_head, queue, entries);
 		//free (queue);
-		libirc_mutex_unlock (session->mutex_session);
+		//libirc_mutex_unlock (session->mutex_session);
 
 	      }
 	    pthread_mutex_unlock (&t_lock);
