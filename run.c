@@ -29,7 +29,7 @@ run (void *arg)
       return;
     }
 
-  int flags, fd = fileno (fp), sent = 0, i, line_count=0;
+  int flags, fd = fileno (fp), sent = 0, i, line_count = 0;
 
   flags = fcntl (fd, F_GETFL, 0);
   flags |= O_NONBLOCK;

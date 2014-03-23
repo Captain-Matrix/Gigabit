@@ -33,7 +33,6 @@ run_rss (void *arg)
 		  0, 0, 0);
   for (;;)
     {
-      //  printf("Fetching...\n\r");
       fflush (stdout);
       sleep (WAIT_TIME);
 
@@ -59,20 +58,7 @@ compare (char *a, char *b)
   return 0;
 }
 
-//char *
-// md5_enc (char *str, char *enc)
-// {
-// 
-//   md5_state_t state;
-//   md5_byte_t digest[1];
-//   md5_init (&state);
-//   int i;
-//   md5_append (&state, (const md5_byte_t *) str, strlen (str));
-//   md5_finish (&state, digest);
-//   for (i = 0; i < 16; ++i)
-//     sprintf (enc + i * 2, "%02x", digest[i]);
-//   return enc;
-// }
+
 
 int
 rss_fetch (void *arg)
@@ -86,32 +72,16 @@ rss_fetch (void *arg)
   CURLcode code;
   sqlite3_stmt *statement;
 
-  FILE *flist = fopen ("./rss.list", "r"),
-    *subscribers = fopen (context->subscribers, "r");
-  char feed_list[64][256], subscriber_list[1024][256], post[1024],
-    db_query[1024], line[1024];
-  int i = 0, j = 0, k = 0, o = 0, r = 0, sent = 0, total = 0;
-  if (flist == NULL || subscribers == NULL)
-    return 0xDEAD;
-  for (i = 0; i < 64 && !feof (flist); i++)
-    {
-      fgets (feed_list[i], 256, flist);
-    }
-  fclose (flist);
-  for (o = 0; o < 1024 && !feof (subscribers); o++)
-    {
-      fgets (subscriber_list[o], 256, subscribers);
+  char post[1024], db_query[1024], line[1024];
+  int i, k = 0, o = 0, r = 0, total = 0;
 
-      trim (subscriber_list[o]);
-      if (strlen (subscriber_list[o]) < 3)
-	--o;
-    }
-  fclose (subscribers);
-  for (j = 0; j < (i - 1); j++)
+
+
+  for (i = 0; i < context->feed_count; i++)
     {
       ret =
-	mrss_parse_url_with_options_and_error (feed_list[j], &data, NULL,
-					       &code);
+	mrss_parse_url_with_options_and_error (context->feedlist[i], &data,
+					       NULL, &code);
 
 
       if (ret)
@@ -150,10 +120,10 @@ rss_fetch (void *arg)
 		      ++total;
 		      if (total < 12)
 			{
-			  for (k = 0; k < o; k++)
+			  for (k = 0; k < context->subscriber_count; k++)
 			    {
 
-			      push_message (subscriber_list[k], post);
+			      push_message (context->subscribers[k], post);
 
 			      //   printf ("~~> <%s>%s\n", post);
 
@@ -163,12 +133,12 @@ rss_fetch (void *arg)
 			}
 		      else
 			{
-			  for (k = 0; k < o; k++)
+			  for (k = 0; k < context->subscriber_count; k++)
 			    {
 			      snprintf (post, 1024,
 					"More feeds will be available later,please wait %d minutes for next update",
 					WAIT_TIME / 60);
-			      push_message (subscriber_list[k], post);
+			      push_message (context->subscribers[k], post);
 			      return;
 			    }
 			}

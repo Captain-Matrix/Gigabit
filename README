@@ -1,6 +1,6 @@
 Gigabit is an irc bot in C , currently under development and testing.
 
-to build Gigabit you need libircclient,libmrss,libGeoIP,and pthread support . 
+to build Gigabit you need libircclient,libmrss,libGeoIP,liblfg and pthread support . 
 Gigabit is and will always be written for linux.
 
 FEATURES:

@@ -10,15 +10,19 @@ _mk_NA (const char *p)
 {
   return p ? p : "N/A";
 }
-void do_lookup(irc_session_t *session,char *to,char *args){
- geo_args * g_args = malloc (sizeof (geo_args));
-      g_args->session = session;
-      snprintf(g_args->dest,256,"%s", to);
-      snprintf(g_args->q,256,"%s",args);
-      pthread_t tid = (pthread_t) g_rand ();
-      pthread_create (&tid, 0, &lookup, (void *) g_args);
-      pthread_join (tid, NULL);
+
+void
+do_lookup (irc_session_t * session, char *to, char *args)
+{
+  geo_args *g_args = malloc (sizeof (geo_args));
+  g_args->session = session;
+  snprintf (g_args->dest, 256, "%s", to);
+  snprintf (g_args->q, 256, "%s", args);
+  pthread_t tid = (pthread_t) g_rand ();
+  pthread_create (&tid, 0, &lookup, (void *) g_args);
+  pthread_join (tid, NULL);
 }
+
 void *
 lookup (void *args)
 {
@@ -58,12 +62,14 @@ lookup (void *args)
   const char *time_zone = NULL;
   char **ret;
 
-  gi = GeoIP_open ("./data/GeoIPCity.dat", GEOIP_INDEX_CACHE);
-  gi_isp = GeoIP_open ("./data/GeoIPISP.dat", GEOIP_STANDARD);
+  gi = GeoIP_open (context->geo_ip_city, GEOIP_INDEX_CACHE);
+  gi_isp = GeoIP_open (context->geo_ip_isp, GEOIP_STANDARD);
 
   if ((gi == NULL) || (gi_isp == NULL))
     {
       fprintf (stderr, "Error opening database\n");
+      push_message (dest,
+		    "Error opening geoip database,please make sure you have the right configuration for geo_ip_city and geo_ip_isp in your config");
       return;
     }
 

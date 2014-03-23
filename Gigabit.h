@@ -2,6 +2,9 @@
 #define Gigabit_h
 #include <sqlite3.h>
 #include "libircclient.h"
+/////////////////////////
+#define VERSION "Gigabit 0.1-alpha"
+////////////////////////
 #define CMD_HELP 1
 #define CMD_LOOKUP 2
 #define CMD_KICK 3
@@ -35,28 +38,34 @@ static const char cmd_list[17][15] =
   "define"
 };
 
-static const char cmd_admin[6][15] = { "NA", "topic", "part", "quit", "join", "nick" };
+static const char cmd_admin[6][15] =
+  { "NA", "topic", "part", "quit", "join", "nick" };
 
 typedef struct
 {
   char nick[256];
-  char name[256];
-  char admin[256];
+  char realname[256];
+  char admins[32][256];
   char password[256];
   char server[256];
-  char version[64];
   unsigned short port;
   char channels[256][64];
-  char subscribers[256];
+  char subscribers[256][256];
   char nick_db[256];
   char rss_db[256];
+  char feedlist[256][256];
+  char geo_ip_isp[256];
+  char geo_ip_city[256];
   sqlite3 *nickdb, *replydb;
 
   int ssl;
   int v6;
   int db_nick;
   int channel_count;
-  int rss_ignore_count;
+  int subscriber_count;
+  int admin_count;
+  int feed_count;
+  int network_count;
   char cmd;
 } context_t;
 ////////////////////////////////////////////

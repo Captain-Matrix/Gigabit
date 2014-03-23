@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <ctype.h>
+#include <lcfg/lcfg.h>
 
 #include "libircclient.h"
 #include "geo_ip.h"
@@ -55,7 +56,7 @@ process_commands (void *args)
     {
       replace (redirect, '@', ' ');
       trim (redirect);
-      if (contains(redirect,'#'))
+      if (contains (redirect, '#'))
 	{
 	  push_message (channel,
 			"Redirecting output to a channel not supported.");
@@ -67,14 +68,17 @@ process_commands (void *args)
 
   if (strlen (cmd) < 2)
     return;
-  replace (cmd, context->cmd, ' ');
-
+  //replace (cmd, context->cmd, ' ');
+  if (cmd[0] == context->cmd)
+    snprintf (cmd, 256, "%s", &cmd[1]);
   trim (query);
+  trim (&cmd[0]);
+  toLower (&cmd[0]);
 
   printf ("[%s] $%s\n", cmd, query);
   rsz = strlen (redirect);
   //snprintf (cmd, 256, "%s", toLower (cmd));
-  toLower(&cmd[0]);
+
   switch (command (cmd))
     {
     case 0:
@@ -85,13 +89,13 @@ process_commands (void *args)
 
       break;
     case CMD_LOOKUP:
-do_lookup(session,rsz ? redirect : channel,query);
-break;
+      do_lookup (session, rsz ? redirect : channel, query);
+      break;
     case CMD_KICK:
       kick (session, context, query, sender, channel);
       break;
     case CMD_VERSION:
-      push_message (channel, context->version);
+      push_message (channel, VERSION);
       break;
     case CMD_QUOTE:
       rt_run (30, rsz ? redirect : channel, channel,
@@ -145,12 +149,12 @@ break;
 	      "Looking up definition ", "sdcv", query, session);
       break;
     default:
-      printf("NO MATCH FOR COMMAND %d",command(cmd));
+      printf ("NO MATCH FOR COMMAND %d", command (cmd));
       break;
 
     }
 
-  if (isadmin (context,sender))
+  if (isadmin (context, sender))
     {
       switch (admin_cmd (cmd))
 	{
@@ -193,8 +197,15 @@ onConnect (irc_session_t * session, const char *event, const char *origin,
 
   int i = 0;
   context_t *context = (context_t *) irc_get_ctx (session);
+  sender_init ();
+
   printf ("connected %d\n", context->channel_count);
   fflush (stdout);
+  for (i; i < context->channel_count; i++)
+    {
+      irc_cmd_join (session, context->channels[i], 0);
+      printf ("joining %s\n", context->channels[i]);
+    }
   if (sqlite3_open (context->nick_db, &context->nickdb))
     {
       printf ("Error opening nick db\n");
@@ -208,16 +219,11 @@ onConnect (irc_session_t * session, const char *event, const char *origin,
 		    0, 0, 0);
       context->db_nick = 1;
     }
-  sender_init ();
   pthread_t sid = (pthread_t) g_rand ();
 
   pthread_create (&sid, 0, &send_thread, (void *) session);
   pthread_detach (sid);
-  for (i; i < context->channel_count; i++)
-    {
-      irc_cmd_join (session, context->channels[i], 0);
-      printf ("joining %s\n", context->channels[i]);
-    }
+
 
   pthread_t tid = (pthread_t) g_rand ();
   pthread_create (&tid, 0, &run_rss, (void *) session);
@@ -313,110 +319,10 @@ onNumeric (irc_session_t * session, unsigned int event,
 }
 
 void
-bot_connect (char *confpath)
+bot_connect (context_t * context)
 {
   irc_callbacks_t cbs;
   static irc_session_t *session;
-  context_t *context = malloc (sizeof (context_t));
-  memset (context, 0, sizeof (context_t));
-  FILE *cns, *rssi;
-  FILE *config;
-  char *line, *p1, *p2;
-  int i = 0, v6 = 0;
-  line = malloc (256);
-  memset (line, 0, 256);
-
-  config = fopen (confpath, "r");
-  if (!config)
-    {
-      printf ("Unable to open configuration for %s\n", confpath);
-      exit (1);
-    }
-  while (!feof (config))
-    {
-
-      fgets (line, 255, config);
-      if (line)
-	{
-	  trim (line);
-	  if (line[0] != '#')
-	    {
-	      p1 = strtok (line, "=");
-	      p2 = p1 + (strlen (p1) + 1);
-	      //printf("%s --> %s\n",p1,p2);
-	      p1 = toLower (p1);
-	      trim (p2);
-	      if (strcmp (p1, "admin") == 0)
-		{
-		  snprintf (context->admin, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "command") == 0)
-		{
-		  context->cmd = p2[0];
-		}
-	      if (strcmp (p1, "server") == 0)
-		{
-		  snprintf (context->server, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "username") == 0)
-		{
-		  snprintf (context->name, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "nick") == 0)
-		{
-		  snprintf (context->nick, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "password") == 0)
-		{
-		  snprintf (context->password, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "version") == 0)
-		{
-		  snprintf (context->version, 64, "%s", p2);
-		}
-	      if (strcmp (p1, "rss_db") == 0)
-		{
-		  snprintf (context->rss_db, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "nick_db") == 0)
-		{
-		  snprintf (context->nick_db, 256, "%s", p2);
-		}
-
-	      if (strcmp (p1, "port") == 0)
-		{
-		  context->port = atoi (p2);
-		}
-	      if (strcmp (p1, "autojoin") == 0)
-		{
-		  if ((cns = fopen (p2, "r")) == NULL)
-		    {
-		      printf
-			("Error loading channel list or config file\n\r");
-		      return;
-		    }
-		}
-	      if (strcmp (p1, "subscribers") == 0)
-		{
-		  snprintf (context->subscribers, 256, "%s", p2);
-		}
-	      if (strcmp (p1, "ipv6") == 0)
-		{
-		  v6 = atoi (p2);
-		}
-	    }
-	}
-    }
-
-  fclose (config);
-  for (i = 0; i < 256 && !feof (cns); i++)
-    {
-      fgets (context->channels[i], 32, cns);
-      context->channels[i][strlen (context->channels[i]) - 1] = '\0';
-    }
-  context->channel_count = i - 2;
-
-
   memset (&cbs, 0, sizeof (cbs));
   cbs.event_connect = onConnect;
   cbs.event_join = onJoin;
@@ -424,17 +330,17 @@ bot_connect (char *confpath)
   cbs.event_numeric = onNumeric;
   cbs.event_privmsg = onPrivmsg;
   session = irc_create_session (&cbs);
-
   irc_set_ctx (session, context);
 
   irc_option_set (session, LIBIRC_OPTION_SSL_NO_VERIFY);
+
   printf ("connecting to :%s\n", context->server);
 
-  if (!v6)
+  if (!context->v6)
     {
       if (irc_connect
 	  (session, context->server, context->port, context->password,
-	   context->name, context->nick, context->version))
+	   context->nick, context->realname, VERSION))
 	{
 	  printf ("Could not connect:%s- %s\n", context->server,
 		  irc_strerror (irc_errno (session)));
@@ -444,7 +350,7 @@ bot_connect (char *confpath)
     {
       if (irc_connect6
 	  (session, context->server, context->port, context->password,
-	   context->name, context->nick, context->version))
+	   context->nick, context->realname, VERSION))
 	{
 	  printf ("Could not connect:%s- %s\n", context->server,
 		  irc_strerror (irc_errno (session)));
@@ -457,38 +363,31 @@ bot_connect (char *confpath)
 	      context->port, irc_strerror (irc_errno (session)));
 
     }
-  free (line);
 
 }
 
 void
 bot_start ()
 {
-  int i = 0;
-  char line[1024];
-  pid_t pid;
-  FILE *nets = fopen ("./config", "r");
-  if (nets == NULL)
-    exit (1);
-  for (i = 0; !feof (nets); i++)
+  struct lcfg *c = lcfg_new ("./default.cfg");
+  context_t *context = malloc (sizeof (context_t));
+  memset (context, 0, sizeof (context_t));
+  if (lcfg_parse (c) != lcfg_status_ok)
     {
-      fgets (line, 1024, nets);
-      if (line[strlen (line) - 1] == '\n')
-	line[strlen (line) - 1] = '\0';
-      trim (line);
-      if (strlen (line) > 2)
-	{
-	  pid = fork ();
-	  if (pid == 0)
-	    bot_connect (line);
-	  else
-	    printf ("Started %d children for network %s PID %d\n", i, line,
-		    pid);
-	}
+      printf ("Error loading config file : %s\n", lcfg_error_get (c));
     }
-  if (pid)
-    fclose (nets);
-  printf ("Child bots running,parent committing suicide....\n");
+  else
+    {
+      lcfg_accept (c, config_callback, context);
+
+      if (context->network_count)
+	{
+	  bot_connect (context);
+	}
+//       else
+//      exit (0);
+    }
+  lcfg_delete (c);
 }
 
 void

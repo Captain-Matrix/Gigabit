@@ -12,5 +12,5 @@ typedef struct
   char dest[256];
   char q[1024];
 } geo_args;
-void do_lookup(irc_session_t *session,char *to,char *args);
+void do_lookup (irc_session_t * session, char *to, char *args);
 #endif
