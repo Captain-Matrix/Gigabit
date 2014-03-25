@@ -133,23 +133,22 @@ void
 kick (irc_session_t * session, context_t * context, char *query, char *sender,
       char *channel)
 {
-  char *who;
+  char who[256];
   int i = 0;
-  who = strtok (query, " ");
-  if (who == NULL)
-    who = query;
+ sscanf(query,"%s%n",&who,&i);
+  if(strlen(query)>strlen(who)){
+    snprintf(query,1024,"%s",&query[i+1]);
+  }else snprintf(query,1024,"Kicking you due to request by %s",sender);
   toLower (who);
   toLower (sender);
-  for (i; i < context->admin_count; i++)
-    {
-      if (strncmp (context->admins[i], sender, strlen (context->admins[i])) ==
-	  0)
+  
+      if (isadmin(context,who))
 	{
 	  irc_cmd_kick (session, sender, channel,
 			"That's cute,here's a real kick :)");
 	  return;
 	}
-    }
+    else
   irc_cmd_kick (session, who, channel, query);
 }
 
@@ -159,7 +158,7 @@ isadmin (context_t * context, char *sender)
   int i = 0;
   for (i; i < context->admin_count; i++)
     {
-      if (strncmp (context->admins[i], sender, strlen (context->admins[i])) ==
+      if (strncmp (context->admins[i], sender, 256) ==
 	  0)
 	return 1;
     }
@@ -223,6 +222,10 @@ config_callback (const char *key, void *data, size_t len, void *user_data)
   else if (strncmp ("network.nick", key, 12) == 0)
     {
       snprintf (context->nick, 256, "%s", s);
+    }
+    else if (strncmp ("network.db_nick", key, 15) == 0)
+    {
+      snprintf (context->nick_db, 256, "%s", s);
     }
   else if (strncmp ("network.rss_db_path", key, 19) == 0)
     {

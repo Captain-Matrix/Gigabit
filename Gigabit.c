@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <ctype.h>
+#include <time.h>
 #include <lcfg/lcfg.h>
 
 #include "libircclient.h"
@@ -140,8 +141,7 @@ process_commands (void *args)
 
       break;
     case CMD_SEEN:
-      push_message (channel, "Command not implemented yet :(  ");
-
+	seen(context,channel,query);
       break;
     case CMD_DEFINE:
 
@@ -265,7 +265,13 @@ onJoin (irc_session_t * session, const char *event, const char *origin,
   snprintf (buf, 2048, "%s", &origin[contains (origin, '@') + 1]);
   printf ("\%\% |%s|<%s>| \%\%\n", params[0], buf);
 }
-
+void
+onPart (irc_session_t * session, const char *event, const char *origin,
+	const char **params, unsigned int count)
+{
+  context_t *context = (context_t *) irc_get_ctx (session);
+user_left(context,params[0],origin);
+}
 void
 onPrivmsg (irc_session_t * session, const char *event, const char *origin,
 	   const char **params, unsigned int count)
@@ -280,6 +286,8 @@ onNumeric (irc_session_t * session, unsigned int event,
 {
   char nickbuf[256];
   context_t *context = (context_t *) irc_get_ctx (session);
+  sqlite3_stmt *statement;
+char db_query[1024];
 
   if (event > 400)
     {
@@ -302,8 +310,28 @@ onNumeric (irc_session_t * session, unsigned int event,
     }
   else if (event == 352)
     {
-      printf ("%s|[%s] [%s] :%s:\n", params[1], params[0],
-	      params[2], params[3]);
+      printf ("~~~~~%d|%s %s|[%s] [%s] :%s:%s\n",count,origin,params[5], params[1], params[0],
+	      params[2], params[3],params[4],params[6],params[7]);
+      snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
+			params[5]);
+
+	      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
+		  SQLITE_OK)
+		{
+		   
+                     printf("$$%s$$\n",db_query);
+
+		  if (statement != NULL && (sqlite3_step (statement) == SQLITE_DONE))
+		    {
+
+		      snprintf (db_query, 1024,
+				"INSERT INTO nickdb VALUES('%s','%s',0,%d)",
+				params[5],params[3],time(NULL));
+		      printf("executing %s\n",db_query);
+		      		      sqlite3_exec (context->nickdb, db_query, 0, 0, 0);
+
+		    }
+		}
 
     }
   else if (event == 366)
@@ -317,7 +345,57 @@ onNumeric (irc_session_t * session, unsigned int event,
 
     }
 }
+void user_left(context_t *context,char *channel,char * nick){
+   sqlite3_stmt *statement;
+char db_query[1024];
 
+ snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
+			nick);
+
+	      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
+		  SQLITE_OK)
+		{
+		   
+                     printf("$$%s$$\n",db_query);
+
+		  if (statement != NULL && (sqlite3_step (statement) == SQLITE_ROW))
+		    {
+
+		      snprintf (db_query, 1024,
+				"INSERT INTO nickdb VALUES('%s','%s',0,%d)",
+				nick,sqlite3_column_text(statement,1),time(NULL));
+		      printf("executing %s\n",db_query);
+		      		      sqlite3_exec (context->nickdb, db_query, 0, 0, 0);
+
+		    }
+		} 
+}
+void seen(context_t *context,char *channel,char *nick){
+    sqlite3_stmt *statement;
+char db_query[1024],msg[1024];
+int a;
+if(strlen(nick)<1)return ;
+
+    snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
+			nick);
+	      printf("Looking up hostname for nick |%s,sqlite query |%s\n",nick,db_query);
+	      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
+		  SQLITE_OK)
+		{
+		   
+
+		  if (statement != NULL && (sqlite3_step (statement) == SQLITE_ROW))
+		    {
+			sscanf(sqlite3_column_text(statement,3),"%d",&a);
+			time_t t=(time_t) a;
+		      snprintf(msg,1024,"%s",ctime((time_t)&t))	;
+		      push_message(channel,msg);
+		      printf("pushing %s to %s\n",msg,channel);
+		      return;
+		    }
+		} 
+  push_message(channel,"Nick not found,sorry.");
+}
 void
 bot_connect (context_t * context)
 {
@@ -326,6 +404,7 @@ bot_connect (context_t * context)
   memset (&cbs, 0, sizeof (cbs));
   cbs.event_connect = onConnect;
   cbs.event_join = onJoin;
+  cbs.event_part = onPart;
   cbs.event_channel = onMessage;
   cbs.event_numeric = onNumeric;
   cbs.event_privmsg = onPrivmsg;
