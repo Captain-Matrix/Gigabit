@@ -77,6 +77,6 @@ typedef struct
   char message[2048];
 
 } cmd_args;
-
-
+void seen (context_t * context, char *channel, char *nick);
+void user_left (context_t * context, const char *channel, const char *nick);
 #endif

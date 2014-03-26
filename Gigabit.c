@@ -12,6 +12,7 @@
 #include "geo_ip.h"
 #include "rss.h"
 #include "run.h"
+#include "cve.h"
 #include "Gigabit.h"
 #include "delayed_send.h"
 #include "utilities.h"
@@ -30,7 +31,7 @@ process_commands (void *args)
   char *channel = carg->chnl;
   char *msg = carg->message;
   int sz_cmd, sz_msg, rsz, w;
-  char cmd[256], query[1024], *who, redirect[1024], tmp[1024];
+  char cmd[256], query[1024], *who, redirect[1024], tmp[1024], dirty[1024];
   context_t *context = (context_t *) irc_get_ctx (session);
   memset (query, 0, 1024);
   memset (redirect, 0, 1024);
@@ -38,11 +39,11 @@ process_commands (void *args)
   memset (cmd, 0, 256);
 
   sz_msg = strlen (msg);
-
+  memcpy (dirty, msg, 1024);
   if (sz_msg > 255 || sz_msg < 3)
     return;
-  sanitize (msg);
-
+  sanitize (msg, 0);
+  sanitize (dirty, 1);
   if (contains (msg, '@'))
     {
       sscanf (msg, "%s %s %s%n", cmd, redirect, query, &w);
@@ -137,11 +138,12 @@ process_commands (void *args)
 
       break;
     case CMD_CVE:
-      push_message (channel, "Command not implemented yet :(  ");
-
+      start_cve_search (rsz ? redirect : sender,
+			&dirty[contains (dirty, ' ')]);
+      push_message (channel, "Running cve search");
       break;
     case CMD_SEEN:
-	seen(context,channel,query);
+      seen (context, channel, query);
       break;
     case CMD_DEFINE:
 
@@ -201,6 +203,7 @@ onConnect (irc_session_t * session, const char *event, const char *origin,
 
   printf ("connected %d\n", context->channel_count);
   fflush (stdout);
+  load_cve ("./allitems.txt");
   for (i; i < context->channel_count; i++)
     {
       irc_cmd_join (session, context->channels[i], 0);
@@ -263,15 +266,17 @@ onJoin (irc_session_t * session, const char *event, const char *origin,
 
   irc_send_raw (session, "WHO %s", params[0]);
   snprintf (buf, 2048, "%s", &origin[contains (origin, '@') + 1]);
-  printf ("\%\% |%s|<%s>| \%\%\n", params[0], buf);
+  //printf ("\%\% |%s|<%s>| \%\%\n", params[0], buf);
 }
+
 void
 onPart (irc_session_t * session, const char *event, const char *origin,
 	const char **params, unsigned int count)
 {
   context_t *context = (context_t *) irc_get_ctx (session);
-user_left(context,params[0],origin);
+  user_left (context, params[0], origin);
 }
+
 void
 onPrivmsg (irc_session_t * session, const char *event, const char *origin,
 	   const char **params, unsigned int count)
@@ -287,7 +292,7 @@ onNumeric (irc_session_t * session, unsigned int event,
   char nickbuf[256];
   context_t *context = (context_t *) irc_get_ctx (session);
   sqlite3_stmt *statement;
-char db_query[1024];
+  char db_query[1024];
 
   if (event > 400)
     {
@@ -310,33 +315,33 @@ char db_query[1024];
     }
   else if (event == 352)
     {
-      printf ("~~~~~%d|%s %s|[%s] [%s] :%s:%s\n",count,origin,params[5], params[1], params[0],
-	      params[2], params[3],params[4],params[6],params[7]);
+      // printf ("~~~~~%d|%s %s|[%s] [%s] :%s:%s\n",count,origin,params[5], params[1], params[0],
+      // params[2], params[3],params[4],params[6],params[7]);
       snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
-			params[5]);
+		params[5]);
 
-	      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
-		  SQLITE_OK)
-		{
-		   
-                     printf("$$%s$$\n",db_query);
+      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
+	  SQLITE_OK)
+	{
 
-		  if (statement != NULL && (sqlite3_step (statement) == SQLITE_DONE))
-		    {
+	  //  printf("$$%s$$\n",db_query);
 
-		      snprintf (db_query, 1024,
-				"INSERT INTO nickdb VALUES('%s','%s',0,%d)",
-				params[5],params[3],time(NULL));
-		      printf("executing %s\n",db_query);
-		      		      sqlite3_exec (context->nickdb, db_query, 0, 0, 0);
+	  if (statement != NULL && (sqlite3_step (statement) == SQLITE_DONE))
+	    {
 
-		    }
-		}
+	      snprintf (db_query, 1024,
+			"INSERT INTO nickdb VALUES('%s','%s',0,%d)",
+			params[5], params[3], time (NULL));
+	      // printf("executing %s\n",db_query);
+	      sqlite3_exec (context->nickdb, db_query, 0, 0, 0);
+
+	    }
+	}
 
     }
   else if (event == 366)
     {
-      printf ("{%s} End of user list\n", params[1]);
+      //  printf ("{%s} End of user list\n", params[1]);
     }
   else
     {
@@ -345,57 +350,64 @@ char db_query[1024];
 
     }
 }
-void user_left(context_t *context,char *channel,char * nick){
-   sqlite3_stmt *statement;
-char db_query[1024];
 
- snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
-			nick);
+void
+user_left (context_t * context, const char *channel, const char *nick)
+{
+  sqlite3_stmt *statement;
+  char db_query[1024];
 
-	      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
-		  SQLITE_OK)
-		{
-		   
-                     printf("$$%s$$\n",db_query);
+  snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'", nick);
 
-		  if (statement != NULL && (sqlite3_step (statement) == SQLITE_ROW))
-		    {
+  if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
+      SQLITE_OK)
+    {
 
-		      snprintf (db_query, 1024,
-				"INSERT INTO nickdb VALUES('%s','%s',0,%d)",
-				nick,sqlite3_column_text(statement,1),time(NULL));
-		      printf("executing %s\n",db_query);
-		      		      sqlite3_exec (context->nickdb, db_query, 0, 0, 0);
+      //  printf("$$%s$$\n",db_query);
 
-		    }
-		} 
+      if (statement != NULL && (sqlite3_step (statement) == SQLITE_ROW))
+	{
+
+	  snprintf (db_query, 1024,
+		    "INSERT INTO nickdb VALUES('%s','%s',0,%d)",
+		    nick, sqlite3_column_text (statement, 1), time (NULL));
+	  //   printf("executing %s\n",db_query);
+	  sqlite3_exec (context->nickdb, db_query, 0, 0, 0);
+
+	}
+    }
 }
-void seen(context_t *context,char *channel,char *nick){
-    sqlite3_stmt *statement;
-char db_query[1024],msg[1024];
-int a;
-if(strlen(nick)<1)return ;
 
-    snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
-			nick);
-	      printf("Looking up hostname for nick |%s,sqlite query |%s\n",nick,db_query);
-	      if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
-		  SQLITE_OK)
-		{
-		   
+void
+seen (context_t * context, char *channel, char *nick)
+{
+  sqlite3_stmt *statement;
+  char db_query[1024], msg[1024];
+  int a;
+  if (strlen (nick) < 1)
+    return;
 
-		  if (statement != NULL && (sqlite3_step (statement) == SQLITE_ROW))
-		    {
-			sscanf(sqlite3_column_text(statement,3),"%d",&a);
-			time_t t=(time_t) a;
-		      snprintf(msg,1024,"%s",ctime((time_t)&t))	;
-		      push_message(channel,msg);
-		      printf("pushing %s to %s\n",msg,channel);
-		      return;
-		    }
-		} 
-  push_message(channel,"Nick not found,sorry.");
+  snprintf (db_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'", nick);
+  printf ("Looking up hostname for nick |%s,sqlite query |%s\n", nick,
+	  db_query);
+  if (sqlite3_prepare_v2 (context->nickdb, db_query, -1, &statement, 0) ==
+      SQLITE_OK)
+    {
+
+
+      if (statement != NULL && (sqlite3_step (statement) == SQLITE_ROW))
+	{
+	  sscanf (sqlite3_column_text (statement, 3), "%d", &a);
+	  time_t t = (time_t) a;
+	  snprintf (msg, 1024, "%s", ctime (&t));
+	  push_message (channel, msg);
+	  printf ("pushing %s to %s\n", msg, channel);
+	  return;
+	}
+    }
+  push_message (channel, "Nick not found,sorry.");
 }
+
 void
 bot_connect (context_t * context)
 {

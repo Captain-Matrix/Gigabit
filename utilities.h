@@ -4,11 +4,13 @@
 #include "Gigabit.h"
 #include "libircclient.h"
 static const char *safe =
-  " \nABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890_=,./@:#^*+-";
+  " \nABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890_=,./@:#^*+-",
+  *iffy =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890[]{}*?\\/-+=_#^.,";
 
 char *toLower (char *s);
 void trim (char *s);
-void sanitize (char *s);
+void sanitize (char *s, int dirty);
 unsigned int g_rand ();
 unsigned int contains (const char *str, char c);
 void replace (char *s, char a, char b);

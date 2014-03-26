@@ -35,7 +35,7 @@ TAILQ_HEAD (, message) message_head;
 
 	  TAILQ_FOREACH (queue, &message_head, entries)
 	  {
-	  //  libirc_mutex_lock (session->mutex_session);
+	    //  libirc_mutex_lock (session->mutex_session);
 	    if (queue != NULL)
 	      {
 		printf (">>> <%s>%s\n", queue->destination, queue->data);

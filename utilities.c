@@ -40,7 +40,7 @@ g_rand ()
 }
 
 void
-sanitize (char *s)
+sanitize (char *s, int dirty)
 {
   int sz = strlen (s), sz_al = strlen (safe), i = 0, j = 0, ok = 0;
   if (sz < 1)
@@ -49,7 +49,7 @@ sanitize (char *s)
     {
       for (j = 0; j < sz_al; j++)
 	{
-	  if (s[i] == safe[j])
+	  if (s[i] == dirty ? iffy[j] : safe[j])
 	    {
 	      ok = 1;
 	      break;
@@ -135,21 +135,24 @@ kick (irc_session_t * session, context_t * context, char *query, char *sender,
 {
   char who[256];
   int i = 0;
- sscanf(query,"%s%n",&who,&i);
-  if(strlen(query)>strlen(who)){
-    snprintf(query,1024,"%s",&query[i+1]);
-  }else snprintf(query,1024,"Kicking you due to request by %s",sender);
+  sscanf (query, "%s%n", &who, &i);
+  if (strlen (query) > strlen (who))
+    {
+      snprintf (query, 1024, "%s", &query[i + 1]);
+    }
+  else
+    snprintf (query, 1024, "Kicking you due to request by %s", sender);
   toLower (who);
   toLower (sender);
-  
-      if (isadmin(context,who))
-	{
-	  irc_cmd_kick (session, sender, channel,
-			"That's cute,here's a real kick :)");
-	  return;
-	}
-    else
-  irc_cmd_kick (session, who, channel, query);
+
+  if (isadmin (context, who))
+    {
+      irc_cmd_kick (session, sender, channel,
+		    "That's cute,here's a real kick :)");
+      return;
+    }
+  else
+    irc_cmd_kick (session, who, channel, query);
 }
 
 unsigned int
@@ -158,8 +161,7 @@ isadmin (context_t * context, char *sender)
   int i = 0;
   for (i; i < context->admin_count; i++)
     {
-      if (strncmp (context->admins[i], sender, 256) ==
-	  0)
+      if (strncmp (context->admins[i], sender, 256) == 0)
 	return 1;
     }
   return 0;
@@ -223,7 +225,7 @@ config_callback (const char *key, void *data, size_t len, void *user_data)
     {
       snprintf (context->nick, 256, "%s", s);
     }
-    else if (strncmp ("network.db_nick", key, 15) == 0)
+  else if (strncmp ("network.db_nick", key, 15) == 0)
     {
       snprintf (context->nick_db, 256, "%s", s);
     }

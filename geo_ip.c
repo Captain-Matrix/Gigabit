@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include "Gigabit.h"
 #include "geo_ip.h"
+#include "utilities.h"
 #include "delayed_send.h"
 static const char *
 _mk_NA (const char *p)
@@ -29,25 +30,30 @@ lookup (void *args)
   geo_args *g_args = (geo_args *) args;
   irc_session_t *session = g_args->session;
   char *dest = g_args->dest;
-  char *q = g_args->q;
+  char q[1024], info[256], nick_query[1024];
+  snprintf (q, 1024, "%s", g_args->q);
   context_t *context = (context_t *) irc_get_ctx (session);
   sqlite3_stmt *nick_statement;
 
   if (strlen (q) < 3)
     return;
 
-  char info[256];		/*,nick_query[1024];
-				   snprintf (nick_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'",
-				   q);
-				   if (sqlite3_prepare_v2 (context->nickdb, nick_query, -1, &nick_statement, 0) ==
-				   SQLITE_OK)
-				   {
+  if (!contains (q, '.'))
+    {
 
-				   if (sqlite3_step (nick_statement) == SQLITE_ROW)
-				   {
-				   printf("lookup nick matcing query ==%s\n",sqlite3_column_name (nick_statement, 2));
-				   }
-				   } */
+
+      snprintf (nick_query, 1024, "SELECT * FROM nickdb WHERE nick='%s'", q);
+      if (sqlite3_prepare_v2
+	  (context->nickdb, nick_query, -1, &nick_statement, 0) == SQLITE_OK)
+	{
+
+	  if (sqlite3_step (nick_statement) == SQLITE_ROW)
+	    {
+	      snprintf (q, 1024, "%s",
+			sqlite3_column_text (nick_statement, 1));
+	    }
+	}
+    }
   snprintf (info, 256, "Performing GeoIP lookup of %s\n", q);
   push_message (dest, info);
 
@@ -86,8 +92,8 @@ lookup (void *args)
 	GeoIP_time_zone_by_country_and_region (gir->country_code,
 					       gir->region);
       snprintf (result, 1024,
-		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%f\t%f\t%d\t%d\t%s\n", q,
-		_mk_NA (GeoIP_org_by_name (gi_isp, q)),
+		"%s>> Organizatoin:[%s] Country-code:[%s] Region:[%s %s] City:[%s] Postal-code:[%s] Lat:[%f] Long:[%f] Metro-code:[%d] Area-code:[%d] Time-zone:[%s]\n",
+		q, _mk_NA (GeoIP_org_by_name (gi_isp, q)),
 		_mk_NA (gir->country_code), _mk_NA (gir->region),
 		_mk_NA (GeoIP_region_name_by_code
 			(gir->country_code, gir->region)), _mk_NA (gir->city),
