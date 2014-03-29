@@ -43,7 +43,7 @@ TAILQ_HEAD (, message) message_head;
 		irc_cmd_msg (session, queue->destination, queue->data);
 
 		TAILQ_REMOVE (&message_head, queue, entries);
-		//free (queue);
+		free (queue);
 		//libirc_mutex_unlock (session->mutex_session);
 
 	      }
@@ -64,6 +64,8 @@ TAILQ_HEAD (, message) message_head;
 void
 push_message (char *dest, char *msg)
 {
+  if (strlen (msg) < 1 || strlen (dest) < 2)
+    return;
   if (pthread_mutex_lock (&t_lock) == 0)
     {
       queue = malloc (sizeof (message));

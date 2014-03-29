@@ -21,7 +21,7 @@ do_lookup (irc_session_t * session, char *to, char *args)
   snprintf (g_args->q, 256, "%s", args);
   pthread_t tid = (pthread_t) g_rand ();
   pthread_create (&tid, 0, &lookup, (void *) g_args);
-  pthread_join (tid, NULL);
+  // pthread_join (tid, NULL);
 }
 
 void *
@@ -106,5 +106,5 @@ lookup (void *args)
   GeoIP_delete (gi);
 
   push_message (dest, result);
-
+  free (args);
 }

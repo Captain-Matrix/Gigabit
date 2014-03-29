@@ -12,7 +12,8 @@ struct cve_query
 typedef struct cve_query cve_query;
 struct entry
 {
-  char buf[20][LINE_SIZE_MAX];
+  char *buf[20];
+  unsigned char count;
     CIRCLEQ_ENTRY (entry) entries;
 };
 typedef struct entry entry;

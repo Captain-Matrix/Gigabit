@@ -17,7 +17,7 @@ load_cve (char *path)
 {
 
   FILE *f = fopen (path, "r");
-  int i = 0;
+  int i = 0, sz;
   char line[1024];
   if (!f)
     return 1;
@@ -27,12 +27,11 @@ load_cve (char *path)
       fgets (line, 1024, f);
       if (strncmp (line, DELIMITER, 10) == 0)
 	{
-	  entry *en = malloc (sizeof (struct entry));
-
-	  for (i = 0; i < 20 && !feof (f); i++)
+	  entry *en = malloc (sizeof (entry));
+	  for (i = 0, sz = 0; i < 20 && !feof (f); i++)
 	    {
 	      fgets (line, 1024, f);
-
+	      sz += strlen (line);
 	      if (strncmp (line, DELIMITER, 10) == 0)
 		{
 
@@ -40,8 +39,12 @@ load_cve (char *path)
 
 		  break;
 		}
-	      snprintf (en->buf[i], LINE_SIZE_MAX, "%s", line);
-
+	      if (line)
+		{
+		  en->buf[i] = malloc (strlen (line) + 1);
+		  ++en->count;
+		  memcpy (en->buf[i], &line, strlen (line) + 1);
+		}
 	    }
 
 	}
@@ -50,6 +53,7 @@ load_cve (char *path)
 
     }
   fclose (f);
+
   return 0;
 
 }
@@ -69,14 +73,18 @@ start_cve_search (char *destination, char *query)
 void *
 cve_searcher (void *arg)
 {
-  int i = 0, total = 0;
+  int i = 0, j = 0, k = 0, total = 0, count = 0, sz;
+  char buf[20][LINE_SIZE_MAX], line[LINE_SIZE_MAX];
   cve_query *cq = arg;
-  entry *e;
   regex_t rx;
   regmatch_t m[1];
-  printf ("Executing cve query of %s destined for %s\n", cq->query,
-	  cq->destination);
-  if (regcomp (&rx, cq->query, REG_ICASE) != 0)
+  FILE *f = fopen ("./allitems.txt", "r");
+  if (f == NULL)
+    return;
+
+
+
+  if (regcomp (&rx, cq->query, REG_ICASE | REG_EXTENDED | REG_NOSUB) != 0)
     {
       printf ("regex compilation failed!!\n");
       push_message (cq->destination, "Invalid regular expression provided");
@@ -85,32 +93,59 @@ cve_searcher (void *arg)
     }
   if (pthread_mutex_lock (&c_lock) == 0)
     {
-
-      for (e = head.cqh_last; e != (void *) &head; e = e->entries.cqe_prev)
+      printf ("Executing cve query of %s destined for %s\n", cq->query,
+	      cq->destination);
+      while (!feof (f))
 	{
-// fgetc(stdin);
+	  fgets (line, LINE_SIZE_MAX, f);
+	  if (strlen (line) > 10)
+	    if (strncmp (line, DELIMITER, strlen (line)) == 0)
+	      {
+		for (i = 0, sz = 0; i < 20 && !feof (f);)
+		  {
+		    fgets (line, LINE_SIZE_MAX, f);
+		    sz += strlen (line);
+		    if (sz > 10)
+		      if (strncmp (line, DELIMITER, sz) == 0)
+			{
+			  for (j = 0; j < count; j++)
+			    {
+			      if (!regexec (&rx, buf[j], 1, m, 0))
+				{
+				  printf
+				    ("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+				  fflush (stdout);
+				  for (i = 0; i < count; i++)
+				    {
+				      if (buf[0])
+					printf ("--%s", buf[0]);
+				      fflush (stdout);
+				      push_message (cq->destination, buf[i]);
 
-	  for (i = 0; i < 20; i++)
-	    {
-	      if (!regexec (&rx, e->buf[i], 1, m, 0))
-		{
-		  printf
-		    ("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-		  for (i = 0; i < 20; i++)
-		    {
-		      push_message (cq->destination, e->buf[i]);
-		      printf ("%s", e->buf[i]);
-		      fflush (stdout);
-		      ++total;
-		      if (total > 50)
-			break;
-		    }
+				      ++total;
+				      if (total > 50)
+					return;
+				    }
+				}
+			    }
+			  count = 0;
+			  goto next;
+			}
+		    if (line)
+		      {
+			count++;
 
-		}
+			snprintf (buf[i], strlen (line), "%s", &line);
+			++i;
+		      }
+		  }
 
-	    }
+	      }
+	next:
+	  i;
 	}
     }
+
   pthread_mutex_unlock (&c_lock);
   regfree (&rx);
   free (cq);

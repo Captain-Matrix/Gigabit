@@ -138,9 +138,11 @@ process_commands (void *args)
 
       break;
     case CMD_CVE:
-      start_cve_search (rsz ? redirect : sender,
-			&dirty[contains (dirty, ' ')]);
-      push_message (channel, "Running cve search");
+//       start_cve_search (rsz ? redirect : sender,
+//                      &dirty[contains (dirty, ' ')]);
+//       push_message (channel, "Running cve search");
+      push_message (channel, "Command not implemented yet :(  ");
+
       break;
     case CMD_SEEN:
       seen (context, channel, query);
@@ -203,7 +205,7 @@ onConnect (irc_session_t * session, const char *event, const char *origin,
 
   printf ("connected %d\n", context->channel_count);
   fflush (stdout);
-  load_cve ("./allitems.txt");
+  //load_cve ("./allitems.txt");
   for (i; i < context->channel_count; i++)
     {
       irc_cmd_join (session, context->channels[i], 0);
