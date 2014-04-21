@@ -20,24 +20,30 @@ run_rss (void *arg)
   irc_session_t *session = (irc_session_t *) arg;
   context_t *context = (context_t *) irc_get_ctx (session);
 
-  if (sqlite3_open (context->rss_db, &h))
-    {
-      printf ("Error opening rss db\n");
-      fflush (stdout);
-      // exit (1);
-      return;
-    }
-  else
-    sqlite3_exec (h,
-		  "CREATE TABLE IF NOT EXISTS rss (title TEXT PRIMARY KEY,link TEXT NOT NULL,posted INTEGER)",
-		  0, 0, 0);
+  int i;
   for (;;)
     {
-      fflush (stdout);
-      sleep (WAIT_TIME);
 
-      if (rss_fetch (arg) == 0xDEAD)
-	printf ("RSS Fetch is 0xDEAD!!\a\n");
+      if (sqlite3_open (context->rss_db, &h))
+	{
+	  printf ("Error opening rss db\n");
+	  fflush (stdout);
+	  // exit (1);
+	  return;
+	}
+      else
+	sqlite3_exec (h,
+		      "CREATE TABLE IF NOT EXISTS rss (title TEXT PRIMARY KEY,link TEXT NOT NULL,posted INTEGER)",
+		      0, 0, 0);
+      for (i = 0; i < 7; i++)
+	{
+	  fflush (stdout);
+	  sleep (WAIT_TIME);
+
+	  if (rss_fetch (arg) == 0xDEAD)
+	    printf ("RSS Fetch is 0xDEAD!!\a\n");
+	}
+      sqlite3_close (h);
     }
 }
 
@@ -73,7 +79,10 @@ rss_fetch (void *arg)
   sqlite3_stmt *statement;
 
   char post[1024], db_query[1024], line[1024];
-  int i, k = 0, o = 0, r = 0, total = 0;
+  int i, k = 0, o = 0, r = 0, total = 0, rv;
+  memset (&post, 0, 1024);
+  memset (&db_query, 0, 1024);
+  memset (&line, 0, 1024);
 
 
 
@@ -100,9 +109,8 @@ rss_fetch (void *arg)
 	      snprintf (db_query, 1024, "SELECT * FROM rss WHERE title='%s'",
 			item->title);
 //                     printf("$$%s$$\n",db_query);
-
-	      if (sqlite3_prepare_v2 (h, db_query, -1, &statement, 0) ==
-		  SQLITE_OK)
+	      rv = sqlite3_prepare_v2 (h, db_query, -1, &statement, 0);
+	      if (rv == SQLITE_OK)
 		{
 		  r = sqlite3_step (statement);
 
@@ -149,7 +157,7 @@ rss_fetch (void *arg)
 		}
 	      else
 		{
-		  printf ("prepare error!!\n");
+		  printf ("Rss Prepare error!! [%d],%s\n", rv, db_query);
 		}
 	    }
 

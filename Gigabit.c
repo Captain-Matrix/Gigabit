@@ -437,6 +437,9 @@ bot_connect (context_t * context)
 	{
 	  printf ("Could not connect:%s- %s\n", context->server,
 		  irc_strerror (irc_errno (session)));
+	  sleep (15);
+	  printf ("Retrying connection to: %s\n", context->server);
+	  bot_connect (context);
 	}
     }
   else
@@ -447,6 +450,9 @@ bot_connect (context_t * context)
 	{
 	  printf ("Could not connect:%s- %s\n", context->server,
 		  irc_strerror (irc_errno (session)));
+	  sleep (15);
+	  printf ("Retrying connection to: %s\n", context->server);
+	  bot_connect (context);
 	}
 
     }
@@ -512,7 +518,7 @@ CATCH_ALL (int signal)
 void
 safe_to_run ()
 {
-  if (getuid == 0 || geteuid == 0 || getgid () == 0)
+  if (getuid () == 0 || geteuid () == 0 || getgid () == 0)
     {
       printf
 	("Really?running an irc bot as root??shame shame shame...tsk...tsk...tsk!!\a\n");

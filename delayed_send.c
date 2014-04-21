@@ -43,7 +43,7 @@ TAILQ_HEAD (, message) message_head;
 		irc_cmd_msg (session, queue->destination, queue->data);
 
 		TAILQ_REMOVE (&message_head, queue, entries);
-		free (queue);
+		//free (queue);
 		//libirc_mutex_unlock (session->mutex_session);
 
 	      }
