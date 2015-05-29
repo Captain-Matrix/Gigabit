@@ -5,61 +5,120 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #include "run.h"
 #include "Gigabit.h"
 #include "delayed_send.h"
+void *
+ping(void *arg){
+  system("/crypt/sb/startpong.sh");  
+   sleep(120);
 
+  int sockfd,n;
+   struct sockaddr_in servaddr,cliaddr;
+   
+   char recvping[5];
 
+   sockfd=socket(AF_INET,SOCK_DGRAM,0);
+int flags = fcntl(sockfd, F_GETFL);
+flags |= O_NONBLOCK;
+fcntl(sockfd, F_SETFL, flags);
+   bzero(&servaddr,sizeof(servaddr));
+   servaddr.sin_family = AF_INET;
+   servaddr.sin_addr.s_addr=inet_addr("192.168.2.199");
+   servaddr.sin_port=htons(8990);
+
+   while (1)
+   {
+      sendto(sockfd,"PING",4,0,
+             (struct sockaddr *)&servaddr,sizeof(servaddr));
+      sleep(5);
+      
+      n=recvfrom(sockfd,recvping,5,0,NULL,NULL);
+      if(n<4){
+	printf("Got nothing :(\n");
+  //system("/crypt/sb/startpong.sh");  
+  //sleep(120);
+      }
+      else if(strncmp("PONG",recvping,4)==0)
+	printf("PONG!\n");
+      else printf("Ping> malformed response %s\n",recvping);
+      recvping[5]=0;
+      
+      
+   } 
+  
+}
+void *recycle(void *arg){
+  irc_session_t *session=arg;
+      context_t *context = (context_t *) irc_get_ctx (session);
+
+  context->runnerup=0;
+ reload(1800);
+     context->runnerup=1;
+
+}
+void reload(int wait){
+   //system("/crypt/sb/startpong.sh");  
+   // sleep(wait);
+}
 void *
 run (void *arg)
 {
+
   runtime *rt = (runtime *) arg;
+    context_t *context = (context_t *) irc_get_ctx (rt->session);
+
 //context_t *context=(context_t*) irc_get_ctx(rt->session);
-
-  FILE *fp = popen (rt->command, "r");
-  char buf[256], big_buf[256][256], destination[256], c;
+if(!context->runnerup){
+ push_message(rt->reply,"Reloading,please wait..."); 
+}
+  char buf[256], destination[256],*tmp;
   int to = rt->timeout;
-  time_t start = time (NULL), last, now;
-  snprintf (destination, 256, "%s", rt->reply);
-  free (rt);
   //printf ("##%s##%s##%s##\n", destination, rt->reply, rt->command);
-  if (fp == NULL)
-    {
-      printf ("command error\n");
-      return;
-    }
+ snprintf(buf,2048,"RUN %s %s\r\n\0",rt->reply,rt->command);
+ 
+///////////////////////////////////////////////////////////////////////////////////////
+     int sockfd,n;
+   struct sockaddr_in servaddr,cliaddr;
+   
+   char recvping[5];
 
-  int flags, fd = fileno (fp), sent = 0, i, line_count = 0;
-
-  flags = fcntl (fd, F_GETFL, 0);
-  flags |= O_NONBLOCK;
-  fcntl (fd, F_SETFL, flags);
-  printf ("run thread started\n");
-  last = time (NULL);
-  do
-    {
-
-      c = fgetc (fp);
-
-      if (c > 0 && c < 255)
-	{
-	  ungetc (c, fp);
-
-	  fgets (buf, 255, fp);
-	  if (buf[strlen (buf) - 1] == '\n')
-	    buf[strlen (buf) - 1] = '\0';
-	  // trim (buf);
-	  if (strlen (buf) > 0)
-	    {
-	      push_message (destination, buf);
-	      ++line_count;
-	    }
+   sockfd=socket(AF_INET,SOCK_DGRAM,0);
+int flags = fcntl(sockfd, F_GETFL);
+flags |= O_NONBLOCK;
+fcntl(sockfd, F_SETFL, flags);
+   bzero(&servaddr,sizeof(servaddr));
+   servaddr.sin_family = AF_INET;
+   servaddr.sin_addr.s_addr=inet_addr("192.168.2.199");
+   servaddr.sin_port=htons(8989);
+  printf ("run thread started\n");  
+ ///////////////////////////////////////////////////////////////////////////////////////
+ sendto(sockfd,buf,strlen(buf),0,
+             (struct sockaddr *)&servaddr,sizeof(servaddr));
+ while(1){
+        n=recvfrom(sockfd,buf,256,0,NULL,NULL);
+	if(n>0){
+        buf[n]='\0';
+        if(strncmp("EOT",buf,3)==0)break;
+	else {
+	  tmp=strchr(&buf[0],' ');
+	  if(tmp==NULL)break;
+	  else{
+	    snprintf(destination,(tmp-&buf[0])+1,"%s",buf);
+	    printf("<<%s>>%s\n",destination,tmp);
+	    push_message(destination,tmp);
+	    
+	  }
 	}
-
-
-    }
-  while (time (NULL) < (start + to) && line_count <= 50);
-  pclose (fp);
+	}
+ }
+ 
+ 
+  free (rt);
 
   return;
 }
@@ -79,7 +138,7 @@ rt_run (int t, char *to, char *channel, char *start_info, char *program,
     {
       snprintf (tmp, 256,
 		"%s,Output will be messaged to %s", start_info, rt->reply);
-      push_message (channel, tmp);
+     // push_message (channel, tmp);
     }
   if (args != NULL)
     snprintf (rt->command, 1024, "timeout -sSIGKILL %d %s %s", rt->timeout,

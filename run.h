@@ -12,5 +12,8 @@ typedef struct
 void *run (void *arg);
 void rt_run (int t, char *to, char *channel, char *start_info, char *program,
 	     char *args, irc_session_t * s);
-
+void *
+ping(void *arg);
+void *recycle(void *arg);
+void reload(int wait);
 #endif

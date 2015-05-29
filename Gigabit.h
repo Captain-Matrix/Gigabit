@@ -29,6 +29,7 @@
 #define ADMIN_QUIT 3
 #define ADMIN_JOIN 4
 #define ADMIN_NICK 5
+#define ADMIN_RELOAD 6
 //////////////////
 #define ADMIN_SIZE 5
 /////////////////
@@ -38,8 +39,8 @@ static const char cmd_list[17][15] =
   "define"
 };
 
-static const char cmd_admin[6][15] =
-  { "NA", "topic", "part", "quit", "join", "nick" };
+static const char cmd_admin[7][15] =
+  { "NA", "topic", "part", "quit", "join", "nick" ,"reload"};
 
 typedef struct
 {
@@ -57,7 +58,7 @@ typedef struct
   char geo_ip_isp[256];
   char geo_ip_city[256];
   sqlite3 *nickdb, *replydb;
-
+  int runnerup;
   int ssl;
   int v6;
   int db_nick;

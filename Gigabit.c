@@ -87,7 +87,7 @@ process_commands (void *args)
       break;
     case CMD_HELP:
       push_message (channel,
-		    "Command List: !help  !lookup !kick !version !quote !define !nmap  !calc !ping !traceroute !man !dig !subnet !cc !cve-search !seen ");
+		    "Command List: !help  !lookup !kick !version !quote , type $ to run any command as in \'$uname -a\' ");
 
       break;
     case CMD_LOOKUP:
@@ -153,7 +153,7 @@ process_commands (void *args)
 	      "Looking up definition ", "sdcv", query, session);
       break;
     default:
-      printf ("NO MATCH FOR COMMAND %d", command (cmd));
+      rt_run(30,sender,channel,"Running command ",msg,NULL,session);
       break;
 
     }
@@ -185,6 +185,8 @@ process_commands (void *args)
 	case ADMIN_NICK:
 	  irc_cmd_nick (session, query);
 	  break;
+	case ADMIN_RELOAD:
+	  reload(120);
 	default:
 	  break;
 
@@ -224,13 +226,21 @@ onConnect (irc_session_t * session, const char *event, const char *origin,
 		    0, 0, 0);
       context->db_nick = 1;
     }
-  pthread_t sid = (pthread_t) g_rand ();
+  pthread_t sid ;
 
   pthread_create (&sid, 0, &send_thread, (void *) session);
   pthread_detach (sid);
+ 
+//   pthread_t rid;
+//   pthread_create (&rid, 0, ping, (void *) session);
+//   pthread_detach (rid);
+  pthread_t rcid;
+  pthread_create (&rcid, 0, recycle, (void *) session);
+  pthread_detach (rcid);
+reload(120);
+    context->runnerup=1;
 
-
-  pthread_t tid = (pthread_t) g_rand ();
+  pthread_t tid ;
   pthread_create (&tid, 0, &run_rss, (void *) session);
   pthread_detach (tid);
 
@@ -253,10 +263,28 @@ onMessage (irc_session_t * session, const char *event, const char *sender,
       snprintf (carg.sndr, 256, "%s", buf);
       snprintf (carg.message, 2048, "%s", params[1]);
       //process_commands(&carg);
-      pthread_t tid = (pthread_t) g_rand ();
+      pthread_t tid ;
       pthread_create (&tid, 0, &process_commands, (void *) &carg);
       pthread_detach (tid);
 
+    }else if(strlen(params[1])> 1 && params[1][0] == '$'){
+      cmd_args carg;		// = malloc (sizeof (cmd_args));
+      carg.s = session;
+      snprintf (carg.chnl, 256, "%s", params[0]);
+      snprintf (carg.sndr, 256, "%s", buf);
+     if(params[1][1]=='$'){
+                    snprintf (carg.message, 2048, "%s 2>&1", &params[2]);
+
+       rt_run(30,carg.chnl,carg.chnl,"Running command ",&carg.message[1],NULL,session); 
+
+     }else{
+             snprintf (carg.message, 2048, "%s 2>&1", params[1]);
+
+       rt_run(30,carg.sndr,carg.chnl,"Running command ",&carg.message[1],NULL,session); 
+     
+       
+    }
+       
     }
 }
 
@@ -283,8 +311,17 @@ void
 onPrivmsg (irc_session_t * session, const char *event, const char *origin,
 	   const char **params, unsigned int count)
 {
-  printf ("\%%s <%s>%s\n", origin, params[0], params[1]);
+  char buf[1024];
+  snprintf (buf, contains (origin, '!') + 1, "%s", origin);
 
+  if(strlen(params[1])> 1 && params[1][0] == '$'){
+      cmd_args carg;		// = malloc (sizeof (cmd_args));
+      carg.s = session;
+      snprintf (carg.chnl, 256, "%s", params[0]);
+      snprintf (carg.sndr, 256, "%s", buf);
+      snprintf (carg.message, 2048, "%s 2>&1", params[1]);
+     rt_run(30,carg.sndr,carg.chnl,"Running command ",&carg.message[1],NULL,session); 
+    }
 }
 
 void
@@ -460,7 +497,9 @@ bot_connect (context_t * context)
     {
       printf ("Could not connect or I/O error: %s:%d %s\n", context->server,
 	      context->port, irc_strerror (irc_errno (session)));
-
+sleep (5);
+	  printf ("Retrying connection to: %s\n", context->server);
+	  bot_connect (context);
     }
 
 }
